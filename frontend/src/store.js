@@ -88,6 +88,28 @@ export const STATUS_MAPS = {
   },
   purpose: {
     OFFICIAL: ['正式', 'primary'], CANDIDATE: ['候选', 'info']
+  },
+  certificate: {
+    ACTIVE: ['有效', 'success'], FROZEN: ['冻结未决', 'warning'],
+    REVOKED: ['已撤销', 'danger'], TRANSFERRED: ['已转让', 'info']
+  },
+  certEvent: {
+    REGISTER: ['登记', 'primary'], DUPLICATE_FROZEN: ['重复冻结', 'warning'],
+    CANCEL: ['注销', 'info'], REVOKE: ['撤销', 'danger'],
+    TRANSFER: ['转让', 'warning'], POOL_JOIN: ['入池', 'primary']
+  },
+  match: {
+    MATCHED: ['匹配', 'success'], REGION_MISMATCH: ['区域错配', 'danger'],
+    PERIOD_MISMATCH: ['期间错配', 'danger'], FROZEN_PENDING: ['冻结未决', 'warning']
+  },
+  claimMethod: {
+    CERTIFICATE: ['逐张分配', 'primary'], POOL: ['批次池扣减', 'warning']
+  },
+  statement: {
+    OPEN: ['开放', 'primary'], PUBLISHED: ['已随报告发布', 'success'], SUPERSEDED: ['被取代', 'info']
+  },
+  duplicate: {
+    PENDING: ['未决', 'warning'], RESOLVED: ['已裁决', 'success']
   }
 }
 

@@ -111,6 +111,41 @@
           <template #default="{ row }"><StatusTag kind="reconcile" :value="row.status" /></template>
         </el-table-column>
       </el-table>
+
+      <h4>市场化电力声明册（凭证逐期归属）</h4>
+      <el-table :data="versionDetail.claimStatements || []" size="small" border>
+        <el-table-column label="工厂" width="110">
+          <template #default="{ row }">{{ store.plantName(row.plantId) }}</template>
+        </el-table-column>
+        <el-table-column prop="period" label="期间" width="85" />
+        <el-table-column label="状态" width="120">
+          <template #default="{ row }"><StatusTag kind="statement" :value="row.status" /></template>
+        </el-table-column>
+        <el-table-column label="用电总量" width="110">
+          <template #default="{ row }">{{ fmtNum(row.totalKwh, 0) }}</template>
+        </el-table-column>
+        <el-table-column label="可匹配量" width="110">
+          <template #default="{ row }">
+            <span class="diff-neg">{{ fmtNum(row.matchedKwh, 0) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="不可匹配量" width="110">
+          <template #default="{ row }">
+            <span :class="{ 'diff-pos': row.unmatchedKwh > 0 }">{{ fmtNum(row.unmatchedKwh, 0) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="剩余量" width="110">
+          <template #default="{ row }">{{ fmtNum(row.residualKwh, 0) }}</template>
+        </el-table-column>
+        <el-table-column label="重复冻结" width="100">
+          <template #default="{ row }">{{ fmtNum(row.duplicateClaimKwh, 0) }}</template>
+        </el-table-column>
+        <el-table-column label="事后失效链" min-width="110">
+          <template #default="{ row }">
+            <span :class="{ 'diff-pos': row.invalidatedChainKwh > 0 }">{{ fmtNum(row.invalidatedChainKwh, 0) }}</span>
+          </template>
+        </el-table-column>
+      </el-table>
     </div>
 
     <div class="page-card" v-if="data.restatements.length">

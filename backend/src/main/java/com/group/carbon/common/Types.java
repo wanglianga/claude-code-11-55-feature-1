@@ -34,4 +34,24 @@ public final class Types {
   public enum ImpactStatus { OPEN, ACKNOWLEDGED, RESOLVED }
 
   public enum RestatementStatus { PROPOSED, ACCEPTED, REJECTED, RESOLVED }
+
+  // ---------------- 市场化电力声明（凭证逐期归属） ----------------
+
+  /** 凭证状态：有效 / 冻结未决（重复竞争） / 已撤销 / 已转让 */
+  public enum CertificateStatus { ACTIVE, FROZEN, REVOKED, TRANSFERRED }
+
+  /** 凭证事件：登记 / 重复冻结 / 注销 / 撤销 / 转让 / 入池 */
+  public enum CertEventType { REGISTER, DUPLICATE_FROZEN, CANCEL, REVOKE, TRANSFER, POOL_JOIN }
+
+  /** 归属方式：逐张分配 / 批次池扣减（两者均为一等能力） */
+  public enum ClaimMethod { CERTIFICATE, POOL }
+
+  /** 匹配结果：匹配 / 区域错配 / 期间错配 / 冻结未决 */
+  public enum MatchStatus { MATCHED, REGION_MISMATCH, PERIOD_MISMATCH, FROZEN_PENDING }
+
+  /** 声明册状态：开放（可继续归属）/ 已随报告发布 / 被新版本取代 */
+  public enum StatementStatus { OPEN, PUBLISHED, SUPERSEDED }
+
+  /** 重复上传裁决状态：未决 / 已裁决 */
+  public enum DuplicateStatus { PENDING, RESOLVED }
 }

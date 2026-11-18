@@ -1,10 +1,7 @@
 package com.group.carbon.service;
 
 import com.group.carbon.common.Types.Role;
-import com.group.carbon.dto.Requests.CreateBatchReq;
-import com.group.carbon.dto.Requests.CreateFactorReq;
-import com.group.carbon.dto.Requests.CreateVersionReq;
-import com.group.carbon.dto.Requests.RowInput;
+import com.group.carbon.dto.Requests.*;
 import com.group.carbon.model.*;
 import com.group.carbon.repo.*;
 import com.group.carbon.security.AuthService;
@@ -37,11 +34,14 @@ public class SampleDataInitializer implements ApplicationRunner {
   private final RunService runService;
   private final FactorService factorService;
   private final DisclosureService disclosureService;
+  private final CertificateService certificateService;
+  private final ClaimService claimService;
 
   public SampleDataInitializer(UserRepo userRepo, PlantRepo plantRepo, ProductLineRepo lineRepo,
                                FactorRepo factorRepo, FactorVersionRepo versionRepo,
                                BatchService batchService, RunService runService,
-                               FactorService factorService, DisclosureService disclosureService) {
+                               FactorService factorService, DisclosureService disclosureService,
+                               CertificateService certificateService, ClaimService claimService) {
     this.userRepo = userRepo;
     this.plantRepo = plantRepo;
     this.lineRepo = lineRepo;
@@ -51,6 +51,8 @@ public class SampleDataInitializer implements ApplicationRunner {
     this.runService = runService;
     this.factorService = factorService;
     this.disclosureService = disclosureService;
+    this.certificateService = certificateService;
+    this.claimService = claimService;
   }
 
   @Override
@@ -110,6 +112,10 @@ public class SampleDataInitializer implements ApplicationRunner {
     runService.execute(mayRun.getId());
     Report mayReport = disclosureService.createReport("analyst",
         "2025年5月集团碳排放披露报告", "2025-05", mayRun.getId());
+
+    // ---------- 2025-05 市场化电力声明（发布前建链，发布时随版本固化） ----------
+    seedMayClaims(sz, cd);
+
     disclosureService.approve(mayReport.getId(), "finance");
     disclosureService.publish(mayReport.getId(), "finance");
     log.info("2025-05 报告已发布: {}", mayReport.getCode());
@@ -133,7 +139,73 @@ public class SampleDataInitializer implements ApplicationRunner {
         row(sz, l1, "PURCH_STEEL", "500", "V-1001"),
         row(cd, l1, "PURCH_STEEL", "300", "V-1002"))));
 
+    // ---------- 2025-06 市场化电力声明种子（开放状态，供验收回放继续归属/裁决/撤销） ----------
+    seedJuneClaims(sz, cd);
+
     log.info("样例数据初始化完成");
+  }
+
+  /** 2025-05 声明：逐张分配（含部分拆分与跨区错配），随报告发布固化。 */
+  private void seedMayClaims(Plant sz, Plant cd) {
+    claimService.syncLedgersFromBatches("2025-05", "analyst");
+    ElectricityLedger szMay = ledger(sz, "2025-05");
+    ElectricityLedger cdMay = ledger(cd, "2025-05");
+
+    EnergyCertificate c1 = cert("REC-SZ-001", sz, "CN-EAST", "SOLAR", "2025-05",
+        "2025-05-01", "2025-05-31", "600000");
+    EnergyCertificate c2 = cert("REC-SZ-002", sz, "CN-EAST", "WIND", "2025-05",
+        "2025-05-01", "2025-05-31", "300000");
+    EnergyCertificate c3 = cert("REC-CD-001", cd, "CN-WEST", "HYDRO", "2025-05",
+        "2025-05-01", "2025-05-31", "500000");
+    EnergyCertificate cx = cert("REC-XREG-001", sz, "CN-WEST", "SOLAR", "2025-05",
+        "2025-05-01", "2025-05-31", "100000");
+
+    claimService.allocate("analyst", new AllocateReq("CERTIFICATE", szMay.getId(), c1.getId(), null, null));
+    claimService.allocate("analyst", new AllocateReq("CERTIFICATE", szMay.getId(), c2.getId(), null, new BigDecimal("300000")));
+    claimService.allocate("analyst", new AllocateReq("CERTIFICATE", cdMay.getId(), c3.getId(), null, null));
+    // 跨区凭证：只登记不可匹配量，不得抵销
+    claimService.allocate("analyst", new AllocateReq("CERTIFICATE", szMay.getId(), cx.getId(), null, new BigDecimal("100000")));
+  }
+
+  /** 2025-06 声明：批次池（两张同属性凭证）、逐张分配、月度错配凭证、重复上传冻结。 */
+  private void seedJuneClaims(Plant sz, Plant cd) {
+    claimService.syncLedgersFromBatches("2025-06", "analyst");
+    ElectricityLedger szJun = ledger(sz, "2025-06");
+    ElectricityLedger cdJun = ledger(cd, "2025-06");
+
+    EnergyCertificate p1 = cert("REC-SZ-101", sz, "CN-EAST", "SOLAR", "2025-06",
+        "2025-06-01", "2025-06-30", "400000");
+    EnergyCertificate p2 = cert("REC-SZ-102", sz, "CN-EAST", "SOLAR", "2025-06",
+        "2025-06-01", "2025-06-30", "200000");
+    claimService.joinPool("analyst", p1.getId());
+    claimService.joinPool("analyst", p2.getId());
+
+    EnergyCertificate cd1 = cert("REC-CD-101", cd, "CN-WEST", "HYDRO", "2025-06",
+        "2025-06-01", "2025-06-30", "150000");
+    claimService.allocate("analyst", new AllocateReq("CERTIFICATE", cdJun.getId(), cd1.getId(), null, null));
+
+    // 月度错配凭证：发电月份 2025-04、交付区间不覆盖 6 月
+    cert("REC-MONTH-001", sz, "CN-EAST", "SOLAR", "2025-04",
+        "2025-04-01", "2025-04-30", "80000");
+
+    // 重复上传：同一序列号被成都工厂再次上传 → 首张凭证争议额度冻结，等待裁决
+    cert("REC-DUP-001", sz, "CN-EAST", "SOLAR", "2025-06",
+        "2025-06-01", "2025-06-30", "120000");
+    certificateService.register("analyst", new RegisterCertificateReq(
+        "REC-DUP-001", cd.getId(), "CN-EAST", "SOLAR", "2025-06",
+        "2025-06-01", "2025-06-30", new BigDecimal("120000")));
+  }
+
+  private ElectricityLedger ledger(Plant plant, String period) {
+    return claimService.listLedgers(period, plant.getId()).stream()
+        .findFirst().orElseThrow(() -> new IllegalStateException("用电账未生成: " + plant.getCode() + " " + period));
+  }
+
+  private EnergyCertificate cert(String serial, Plant holder, String region, String technology,
+                                 String genMonth, String deliveryFrom, String deliveryTo, String qtyKwh) {
+    var res = certificateService.register("analyst", new RegisterCertificateReq(
+        serial, holder.getId(), region, technology, genMonth, deliveryFrom, deliveryTo, new BigDecimal(qtyKwh)));
+    return (EnergyCertificate) res.get("certificate");
   }
 
   // ---------- 辅助 ----------

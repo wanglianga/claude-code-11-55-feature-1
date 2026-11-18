@@ -30,6 +30,45 @@
       </el-card>
     </div>
 
+    <div class="page-card" v-if="data?.claims">
+      <h3 class="page-title">
+        市场化电力声明（凭证逐期归属）
+        <el-link type="primary" style="margin-left:12px;font-size:13px" @click="$router.push('/claims')">声明册</el-link>
+        <el-link type="primary" style="margin-left:8px;font-size:13px" @click="$router.push('/certificates')">属性凭证</el-link>
+      </h3>
+      <div class="stat-row claim-row">
+        <el-card class="stat" shadow="never">
+          <div class="label">凭证总数 / 冻结未决</div>
+          <div class="value">{{ data.claims.totalCertificates }}
+            <span class="warn" style="font-size:18px">/ {{ data.claims.frozenCertificates }}</span>
+          </div>
+          <div class="sub">冻结凭证存在重复竞争</div>
+        </el-card>
+        <el-card class="stat" shadow="never">
+          <div class="label">未决重复上传</div>
+          <div class="value" :class="{ warn: data.claims.pendingDuplicates > 0 }">{{ data.claims.pendingDuplicates }}</div>
+          <div class="sub">等待裁决的重复主张</div>
+        </el-card>
+        <el-card class="stat" shadow="never">
+          <div class="label">累计可匹配覆盖</div>
+          <div class="value">{{ fmtNum(data.claims.totalMatchedKwh, 0) }} <span class="unit">kWh</span></div>
+          <div class="sub">同区域同适用期有效声明</div>
+        </el-card>
+        <el-card class="stat" shadow="never">
+          <div class="label">未覆盖剩余用电</div>
+          <div class="value">{{ fmtNum(data.claims.totalResidualKwh, 0) }} <span class="unit">kWh</span></div>
+          <div class="sub">不可用凭证总量直接抵销</div>
+        </el-card>
+        <el-card class="stat" shadow="never">
+          <div class="label">事后失效声明链</div>
+          <div class="value" :class="{ danger: data.claims.totalInvalidatedChainKwh > 0 }">
+            {{ fmtNum(data.claims.totalInvalidatedChainKwh, 0) }} <span class="unit">kWh</span>
+          </div>
+          <div class="sub">撤销/转让后保留并标记</div>
+        </el-card>
+      </div>
+    </div>
+
     <div class="grid">
       <div class="page-card" v-if="data && data.latestPublished">
         <h3 class="page-title">披露口径 · 分工厂排放（tCO2e）</h3>
@@ -101,6 +140,8 @@ onMounted(async () => {
 
 <style scoped>
 .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+.claim-row { grid-template-columns: repeat(5, 1fr); margin-bottom: 0; }
+.claim-row .stat .value { font-size: 22px; }
 .stat .label { font-size: 13px; color: #909399; }
 .stat .value { font-size: 26px; font-weight: 700; color: #0f2b46; margin: 6px 0 2px; }
 .stat .value.warn { color: #e6a23c; }

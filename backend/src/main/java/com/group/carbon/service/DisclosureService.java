@@ -29,12 +29,13 @@ public class DisclosureService {
   private final ProductLineRepo lineRepo;
   private final RestatementRepo restatementRepo;
   private final ImpactAssessmentRepo impactRepo;
+  private final ClaimService claimService;
 
   public DisclosureService(ReportRepo reportRepo, ReportVersionRepo versionRepo,
                            ReportItemRepo itemRepo, ReconciliationRepo reconRepo,
                            EmissionResultRepo resultRepo, CalcRunRepo runRepo,
                            ProductLineRepo lineRepo, RestatementRepo restatementRepo,
-                           ImpactAssessmentRepo impactRepo) {
+                           ImpactAssessmentRepo impactRepo, ClaimService claimService) {
     this.reportRepo = reportRepo;
     this.versionRepo = versionRepo;
     this.itemRepo = itemRepo;
@@ -44,6 +45,7 @@ public class DisclosureService {
     this.lineRepo = lineRepo;
     this.restatementRepo = restatementRepo;
     this.impactRepo = impactRepo;
+    this.claimService = claimService;
   }
 
   public List<Report> listReports() { return reportRepo.findAllByOrderByIdDesc(); }
@@ -66,10 +68,13 @@ public class DisclosureService {
   public Map<String, Object> versionDetail(Long versionId) {
     ReportVersion v = versionRepo.findById(versionId)
         .orElseThrow(() -> BizException.notFound("报告版本不存在: " + versionId));
+    Report report = reportRepo.findById(v.getReportId())
+        .orElseThrow(() -> BizException.notFound("报告不存在"));
     Map<String, Object> out = new LinkedHashMap<>();
     out.put("version", v);
     out.put("items", itemRepo.findByReportVersionIdOrderById(versionId));
     out.put("reconciliations", reconRepo.findByReportVersionIdOrderById(versionId));
+    out.put("claimStatements", claimService.listStatements(report.getPeriod(), null));
     return out;
   }
 
@@ -207,6 +212,8 @@ public class DisclosureService {
 
     report.setStatus(reconcile == ReconcileStatus.OK ? ReportStatus.PENDING_REVIEW : ReportStatus.RECONCILE_FAILED);
     reportRepo.save(report);
+    // 新报告版本冻结：重开期间声明册，允许在新版本发布前调整市场化电力声明
+    claimService.reopenStatements(report.getPeriod());
     return version;
   }
 
@@ -269,6 +276,8 @@ public class DisclosureService {
     versionRepo.save(latest);
     report.setStatus(ReportStatus.PUBLISHED);
     reportRepo.save(report);
+    // 发布固化：期间声明册与有效声明链冻结到本版本；事后凭证失效只打标记、不改写链
+    claimService.publishStatements(report.getPeriod(), latest.getId());
 
     // 若本次发布是重述结果：关闭对应重述建议与影响评估
     for (Restatement r : restatementRepo.findByNewVersionId(latest.getId())) {

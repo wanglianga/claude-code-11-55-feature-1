@@ -19,11 +19,16 @@ public class DashboardService {
   private final ImpactAssessmentRepo impactRepo;
   private final RestatementRepo restatementRepo;
   private final PlantRepo plantRepo;
+  private final ClaimStatementRepo statementRepo;
+  private final CertificateDuplicateRepo duplicateRepo;
+  private final EnergyCertificateRepo certificateRepo;
 
   public DashboardService(ReportRepo reportRepo, ReportVersionRepo versionRepo,
                           ReportItemRepo itemRepo, CalcRunRepo runRepo,
                           EmissionResultRepo resultRepo, ImpactAssessmentRepo impactRepo,
-                          RestatementRepo restatementRepo, PlantRepo plantRepo) {
+                          RestatementRepo restatementRepo, PlantRepo plantRepo,
+                          ClaimStatementRepo statementRepo, CertificateDuplicateRepo duplicateRepo,
+                          EnergyCertificateRepo certificateRepo) {
     this.reportRepo = reportRepo;
     this.versionRepo = versionRepo;
     this.itemRepo = itemRepo;
@@ -32,6 +37,9 @@ public class DashboardService {
     this.impactRepo = impactRepo;
     this.restatementRepo = restatementRepo;
     this.plantRepo = plantRepo;
+    this.statementRepo = statementRepo;
+    this.duplicateRepo = duplicateRepo;
+    this.certificateRepo = certificateRepo;
   }
 
   public Map<String, Object> summary() {
@@ -93,6 +101,21 @@ public class DashboardService {
 
     out.put("recentRuns", runs.stream().limit(6).toList());
     out.put("recentImpacts", impactRepo.findAllByOrderByIdDesc().stream().limit(6).toList());
+
+    // 市场化电力声明 KPI：未决重复主张、冻结凭证、声明册覆盖汇总
+    Map<String, Object> claims = new LinkedHashMap<>();
+    claims.put("pendingDuplicates", duplicateRepo.findAll().stream()
+        .filter(d -> d.getStatus() == DuplicateStatus.PENDING).count());
+    claims.put("frozenCertificates", certificateRepo.findAll().stream()
+        .filter(c -> c.getStatus() == CertificateStatus.FROZEN).count());
+    claims.put("totalCertificates", certificateRepo.count());
+    claims.put("totalMatchedKwh", statementRepo.findAll().stream()
+        .map(ClaimStatement::getMatchedKwh).reduce(BigDecimal.ZERO, BigDecimal::add));
+    claims.put("totalResidualKwh", statementRepo.findAll().stream()
+        .map(ClaimStatement::getResidualKwh).reduce(BigDecimal.ZERO, BigDecimal::add));
+    claims.put("totalInvalidatedChainKwh", statementRepo.findAll().stream()
+        .map(ClaimStatement::getInvalidatedChainKwh).reduce(BigDecimal.ZERO, BigDecimal::add));
+    out.put("claims", claims);
     return out;
   }
 }
