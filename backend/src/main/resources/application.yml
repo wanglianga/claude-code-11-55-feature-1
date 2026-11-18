@@ -1,0 +1,42 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: carbon-platform
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:127.0.0.1}:${DB_PORT:5432}/${DB_NAME:ccdev}
+    username: ${DB_USER:ccdev}
+    password: ${DB_PASS:ccdev}
+    driver-class-name: org.postgresql.Driver
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Shanghai
+  web:
+    resources:
+      # 本地一体化运行时：若 frontend/dist 已构建，后端直接托管前端静态资源
+      static-locations: classpath:/static/,file:./frontend/dist/,file:../frontend/dist/
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+app:
+  # 令牌签名密钥，生产环境请通过环境变量覆盖
+  auth-secret: ${AUTH_SECRET:carbon-dev-secret-change-me}
+  token-ttl-hours: ${TOKEN_TTL_HOURS:12}
+  # 官方运行启动后的异步执行延迟（毫秒），用于演示“运行中替换因子仍绑定启动时清单”
+  run-async-delay-ms: ${RUN_ASYNC_DELAY_MS:2000}
+
+logging:
+  level:
+    root: info
+    com.group.carbon: info

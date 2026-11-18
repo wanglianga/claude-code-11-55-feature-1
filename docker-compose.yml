@@ -1,0 +1,45 @@
+# 碳排放披露数据血缘与版本影响管理平台 —— 一键启动
+# 用法：docker compose up --build
+# 访问：http://localhost  （前端）  http://localhost:8080/api/health （后端）
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ccdev
+      POSTGRES_PASSWORD: ccdev
+      POSTGRES_DB: ccdev
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ccdev -d ccdev"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ccdev
+      DB_USER: ccdev
+      DB_PASS: ccdev
+      AUTH_SECRET: carbon-compose-secret
+      RUN_ASYNC_DELAY_MS: "2000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  pgdata:
